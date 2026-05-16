@@ -28,16 +28,16 @@ const monthLabel  = new Date().toLocaleDateString("en-US", { month: "long", year
 const currentYear = new Date().getFullYear();
 
 // ── Spending storage ──────────────────────────────────────────────────────────
-const SPENDING_KEY      = (m) => `spending_v1_${m}`;
-const SPENDING_ARCH_KEY = (m) => `spending_arch_v1_${m}`;
+const SPENDING_KEY      = (m: string) => `spending_v1_${m}`;
+const SPENDING_ARCH_KEY = (m: string) => `spending_arch_v1_${m}`;
 
-function loadMonthSpending(m = monthStr) {
+function loadMonthSpending(m: string = monthStr) {
   try { return JSON.parse(localStorage.getItem(SPENDING_KEY(m)) || "[]"); } catch { return []; }
 }
-function saveMonthSpending(entries, m = monthStr) {
+function saveMonthSpending(entries: any[], m: string = monthStr) {
   try { localStorage.setItem(SPENDING_KEY(m), JSON.stringify(entries)); } catch {}
 }
-function archiveMonthSpending(m) {
+function archiveMonthSpending(m: string) {
   try {
     const key = SPENDING_KEY(m);
     const data = localStorage.getItem(key);
@@ -81,8 +81,8 @@ function loadState() {
 function freshState() {
   return { mealsByDay: {}, workTasks: [], personalTasks: [], lastActiveDate: todayStr, activeMonth: monthStr };
 }
-function saveState(s) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {} }
-function saveDayToHistory(dateStr, meals) {
+function saveState(s: any) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {} }
+function saveDayToHistory(dateStr: string, meals: any[]) {
   try {
     const raw = localStorage.getItem(MACRO_HISTORY_KEY);
     const history = raw ? JSON.parse(raw) : {};
@@ -115,22 +115,22 @@ function getArchives() {
 }
 
 // ── Task storage — monthly archive + rollover ────────────────────────────────
-const TASK_KEY      = (type, m) => `tasks_v1_${type}_${m}`;
-const TASK_ARCH_KEY = (type, m) => `tasks_arch_v1_${type}_${m}`;
+const TASK_KEY      = (type: string, m: string) => `tasks_v1_${type}_${m}`;
+const TASK_ARCH_KEY = (type: string, m: string) => `tasks_arch_v1_${type}_${m}`;
 
-function loadMonthTasks(type, m = monthStr) {
+function loadMonthTasks(type: string, m: string = monthStr) {
   try { return JSON.parse(localStorage.getItem(TASK_KEY(type, m)) || "null"); } catch { return null; }
 }
-function saveMonthTasks(type, tasks, m = monthStr) {
+function saveMonthTasks(type: string, tasks: any[], m: string = monthStr) {
   try { localStorage.setItem(TASK_KEY(type, m), JSON.stringify(tasks)); } catch {}
 }
-function archiveMonthTasks(type, m) {
+function archiveMonthTasks(type: string, m: string) {
   try {
     const data = localStorage.getItem(TASK_KEY(type, m));
     if (data) localStorage.setItem(TASK_ARCH_KEY(type, m), data);
   } catch {}
 }
-function getTaskArchives(type) {
+function getTaskArchives(type: string) {
   const out = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -144,7 +144,7 @@ function getTaskArchives(type) {
   } catch {}
   return out.sort((a, b) => b.month.localeCompare(a.month));
 }
-function initMonthTasks(type) {
+function initMonthTasks(type: string) {
   const current = loadMonthTasks(type, monthStr);
   if (current !== null) return current;
   let prevTasks = null;
@@ -189,7 +189,7 @@ function sumMacros(meals) {
     { calories: 0, protein: 0, fibre: 0 }
   );
 }
-function goalScore(t) {
+function goalScore(t: any) {
   const keys = ["calories","protein","fibre"];
   return keys.reduce((s,k) => s + Math.min((t[k]||0)/MACRO_GOALS[k],1),0)/keys.length;
 }
@@ -198,7 +198,7 @@ function categoryBreakdown(entries) {
   for (const e of entries) { const c = (e.category==="…"||!e.category)?"Other":e.category; out[c]=(out[c]||0)+parseFloat(e.amount||0); }
   return out;
 }
-function shortMonth(m) { return new Date(m+"-15").toLocaleDateString("en-US",{month:"short"}); }
+function shortMonth(m: string) { return new Date(m+"-15").toLocaleDateString("en-US",{month:"short"}); }
 
 // ── AI helpers ────────────────────────────────────────────────────────────────
 async function parseMFPScreenshot(base64Image, mediaType) {
