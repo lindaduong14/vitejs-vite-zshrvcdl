@@ -366,10 +366,10 @@ function Overview({ totalSpent, todayMacros, workDone, personalDone, workTasks, 
       <Card onClick={() => setTab("Work")} label="Work Tasks">
         <p style={S.bigNum}>{workDone}<span style={S.outOf}>/{workTasks.length}</span></p>
         <p style={S.subLabel}>tasks completed</p>
-        <ProgressBar pct={workTasks.length?(workDone/workTasks.length)*100:0} color="#4a7fa5" />
+        <ProgressBar pct={workTasks.length?(workDone/workTasks.length)*100:0} color="#4a7fa5" thin={false} />
         <div style={S.previewList}>
           {workTasks.filter(t=>!t.done).slice(0,2).map(t=><p key={t.id} style={S.previewItem}>· {t.text}</p>)}
-        </div>
+          <ProgressBar pct={personalTasks.length?(personalDone/personalTasks.length)*100:0} color="#7fafc8" thin={false} />
       </Card>
 
       <Card onClick={() => setTab("Personal")} label="Personal Tasks">
@@ -725,46 +725,64 @@ function SpendingTrendChart({ months }) {
 
 // ── Screenshot Importer ───────────────────────────────────────────────────────
 function ScreenshotImporter({ onImport }) {
-  const [status, setStatus]     = useState("idle");
-  const [message, setMessage]   = useState("");
-  const [dragOver, setDragOver] = useState(false);
-  const [previews, setPreviews] = useState([]);
+  const [status, setStatus]         = useState("idle");
+  const [message, setMessage]       = useState("");
+  const [dragOver, setDragOver]     = useState(false);
+  const [previews, setPreviews]     = useState([]);
+  const [importDate, setImportDate] = useState(todayStr);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const processFiles = async (files) => {
     const imageFiles = [...files].filter(f=>f.type.startsWith("image/"));
     if (!imageFiles.length) { setStatus("err"); setMessage("Please select image files (PNG, JPG, HEIC)."); return; }
-    setStatus("loading"); setMessage(`Reading ${imageFiles.length} screenshot${imageFiles.length>1?"s":""}…`); setPreviews([]);
+    setStatus("loading"); setMessage(`Analysing ${imageFiles.length} meal screenshot${imageFiles.length>1?"s":""}...`); setPreviews([]);
     const allItems=[]; let errorCount=0;
     for (const file of imageFiles) {
       try {
         const base64 = await fileToBase64(file);
         setPreviews(prev=>[...prev,base64]);
-        setMessage(`Analysing screenshot ${allItems.length+1} of ${imageFiles.length} with AI…`);
+        setMessage(`Reading meal ${allItems.length+1} of ${imageFiles.length}...`);
         allItems.push(...await parseMFPScreenshot(base64, file.type||"image/jpeg"));
       } catch { errorCount++; }
     }
-    if (!allItems.length) { setStatus("err"); setMessage("No food items found. Try a screenshot showing individual foods with calorie and protein values."); return; }
-    onImport(allItems);
+    if (!allItems.length) { setStatus("err"); setMessage("Couldn't read macros. Make sure your screenshot shows the meal view with the macro ring (calories, protein, carbs, fat) at the top."); return; }
+    onImport(allItems, importDate);
     setStatus("ok");
-    setMessage(`✓ Imported ${allItems.length} food item${allItems.length!==1?"s":""}${errorCount?` (${errorCount} screenshot${errorCount>1?"s":""} couldn't be read)`:""}.`);
+    const dateLabel = importDate === todayStr ? "today" : new Date(importDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric"});
+    setMessage(`✓ Imported ${allItems.length} meal${allItems.length!==1?"s":""} for ${dateLabel}.`);
     setTimeout(() => { setStatus("idle"); setPreviews([]); }, 3000);
   };
 
+  const dateOptions = Array.from({length:14},(_,i)=>{
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const val = d.toISOString().slice(0,10);
+    const label = i===0?"Today":i===1?"Yesterday":d.toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric"});
+    return {val,label};
+  });
+
   return (
     <div>
+      <div style={{ marginBottom:12 }}>
+        <p style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, color:"#a09890", fontWeight:500, letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:6 }}>Import date</p>
+        <select value={importDate} onChange={e=>setImportDate(e.target.value)} style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13, padding:"9px 12px", border:"1.5px solid #ddd8d0", borderRadius:10, background:"#faf9f7", color:"#2c2420", width:"100%", cursor:"pointer" }}>
+          {dateOptions.map(o=><option key={o.val} value={o.val}>{o.label}</option>)}
+        </select>
+      </div>
+      <div style={{ marginBottom:10, padding:"8px 12px", background:"#eef2f8", borderRadius:8 }}>
+        <p style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, color:"#4a6fa5" }}>Upload one screenshot per meal (Breakfast, Lunch, Dinner, Snacks) showing the macro ring at the top.</p>
+      </div>
       <div className={`img-drop${dragOver?" drag-over":""}`} onClick={() => fileRef.current?.click()}
         onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={() => setDragOver(false)}
         onDrop={e=>{e.preventDefault();setDragOver(false);processFiles(e.dataTransfer.files);}}
         style={{ padding:"24px 16px", textAlign:"center", cursor:"pointer" }}>
         <div style={{ fontSize:28, marginBottom:8 }}>📸</div>
-        <p style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13, color:"#4a7fa5", fontWeight:500 }}>Tap to select screenshots</p>
-        <p style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, color:"#b8b0a4", marginTop:4 }}>or drag & drop · PNG, JPG, HEIC · multiple files supported</p>
+        <p style={{ fontFamily:"'DM Sans', sans-serif", fontSize:13, color:"#4a7fa5", fontWeight:500 }}>Tap to select meal screenshots</p>
+        <p style={{ fontFamily:"'DM Sans', sans-serif", fontSize:11, color:"#b8b0a4", marginTop:4 }}>PNG, JPG, HEIC · upload multiple meals at once</p>
         <input ref={fileRef} type="file" accept="image/*" multiple style={{ display:"none" }} onChange={e=>processFiles(e.target.files)} />
       </div>
       {previews.length>0 && (
         <div style={{ display:"flex", gap:6, marginTop:10, flexWrap:"wrap" }}>
-          {previews.map((b64,i) => <img key={i} src={`data:image/jpeg;base64,${b64}`} style={{ height:60, width:40, objectFit:"cover", borderRadius:6, border:"1px solid #e8e4de" }} />)}
+          {previews.map((b64,i) => <img key={i} src={`data:image/jpeg;base64,${b64}`} style={{ height:80, width:52, objectFit:"cover", objectPosition:"top", borderRadius:6, border:"1px solid #e8e4de" }} />)}
         </div>
       )}
       {status!=="idle" && (
@@ -772,7 +790,6 @@ function ScreenshotImporter({ onImport }) {
           {message}
         </div>
       )}
-      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
