@@ -28,16 +28,16 @@ const monthLabel  = new Date().toLocaleDateString("en-US", { month: "long", year
 const currentYear = new Date().getFullYear();
 
 // ── Spending storage ──────────────────────────────────────────────────────────
-const SPENDING_KEY      = (m: string) => `spending_v1_${m}`;
-const SPENDING_ARCH_KEY = (m: string) => `spending_arch_v1_${m}`;
+const SPENDING_KEY      = (m) => `spending_v1_${m}`;
+const SPENDING_ARCH_KEY = (m) => `spending_arch_v1_${m}`;
 
-function loadMonthSpending(m: string = monthStr) {
+function loadMonthSpending(m = monthStr) {
   try { return JSON.parse(localStorage.getItem(SPENDING_KEY(m)) || "[]"); } catch { return []; }
 }
-function saveMonthSpending(entries: any[], m: string = monthStr) {
+function saveMonthSpending(entries, m = monthStr) {
   try { localStorage.setItem(SPENDING_KEY(m), JSON.stringify(entries)); } catch {}
 }
-function archiveMonthSpending(m: string) {
+function archiveMonthSpending(m) {
   try {
     const key = SPENDING_KEY(m);
     const data = localStorage.getItem(key);
@@ -81,8 +81,8 @@ function loadState() {
 function freshState() {
   return { mealsByDay: {}, workTasks: [], personalTasks: [], lastActiveDate: todayStr, activeMonth: monthStr };
 }
-function saveState(s: any) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {} }
-function saveDayToHistory(dateStr: string, meals: any[]) {
+function saveState(s) { try { localStorage.setItem(STORE_KEY, JSON.stringify(s)); } catch {} }
+function saveDayToHistory(dateStr, meals) {
   try {
     const raw = localStorage.getItem(MACRO_HISTORY_KEY);
     const history = raw ? JSON.parse(raw) : {};
@@ -115,22 +115,22 @@ function getArchives() {
 }
 
 // ── Task storage — monthly archive + rollover ────────────────────────────────
-const TASK_KEY      = (type: string, m: string) => `tasks_v1_${type}_${m}`;
-const TASK_ARCH_KEY = (type: string, m: string) => `tasks_arch_v1_${type}_${m}`;
+const TASK_KEY      = (type, m) => `tasks_v1_${type}_${m}`;
+const TASK_ARCH_KEY = (type, m) => `tasks_arch_v1_${type}_${m}`;
 
-function loadMonthTasks(type: string, m: string = monthStr) {
+function loadMonthTasks(type, m = monthStr) {
   try { return JSON.parse(localStorage.getItem(TASK_KEY(type, m)) || "null"); } catch { return null; }
 }
-function saveMonthTasks(type: string, tasks: any[], m: string = monthStr) {
+function saveMonthTasks(type, tasks, m = monthStr) {
   try { localStorage.setItem(TASK_KEY(type, m), JSON.stringify(tasks)); } catch {}
 }
-function archiveMonthTasks(type: string, m: string) {
+function archiveMonthTasks(type, m) {
   try {
     const data = localStorage.getItem(TASK_KEY(type, m));
     if (data) localStorage.setItem(TASK_ARCH_KEY(type, m), data);
   } catch {}
 }
-function getTaskArchives(type: string) {
+function getTaskArchives(type) {
   const out = [];
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -144,7 +144,7 @@ function getTaskArchives(type: string) {
   } catch {}
   return out.sort((a, b) => b.month.localeCompare(a.month));
 }
-function initMonthTasks(type: string) {
+function initMonthTasks(type) {
   const current = loadMonthTasks(type, monthStr);
   if (current !== null) return current;
   let prevTasks = null;
@@ -189,7 +189,7 @@ function sumMacros(meals) {
     { calories: 0, protein: 0, fibre: 0 }
   );
 }
-function goalScore(t: any) {
+function goalScore(t) {
   const keys = ["calories","protein","fibre"];
   return keys.reduce((s,k) => s + Math.min((t[k]||0)/MACRO_GOALS[k],1),0)/keys.length;
 }
@@ -198,7 +198,7 @@ function categoryBreakdown(entries) {
   for (const e of entries) { const c = (e.category==="…"||!e.category)?"Other":e.category; out[c]=(out[c]||0)+parseFloat(e.amount||0); }
   return out;
 }
-function shortMonth(m: string) { return new Date(m+"-15").toLocaleDateString("en-US",{month:"short"}); }
+function shortMonth(m) { return new Date(m+"-15").toLocaleDateString("en-US",{month:"short"}); }
 
 // ── AI helpers ────────────────────────────────────────────────────────────────
 async function parseMFPScreenshot(base64Image, mediaType) {
@@ -353,7 +353,7 @@ function Overview({ totalSpent, todayMacros, workDone, personalDone, workTasks, 
       <Card onClick={() => setTab("Spending")} label="Spending">
         <p style={S.bigNum}>${totalSpent.toFixed(2)}</p>
         <p style={S.subLabel}>of ${BUDGET_LIMIT} budget — {monthLabel}</p>
-        <ProgressBar pct={spendPct} color={spendPct>85?"#d4886a":"#4a7fa5"} />
+        <ProgressBar pct={spendPct} color={spendPct>85?"#d4886a":"#4a7fa5"} thin={false} />
         <p style={S.tinyNote}>{(100-spendPct).toFixed(0)}% remaining</p>
       </Card>
 
@@ -425,7 +425,7 @@ function Spending({ entries, setEntries, totalSpent }) {
             <p style={{ ...S.tinyNote, marginTop:2 }}>Resets next month</p>
           </div>
         </div>
-        <ProgressBar pct={spendPct} color={spendPct>85?"#d4886a":"#4a7fa5"} />
+        <ProgressBar pct={spendPct} color={spendPct>85?"#d4886a":"#4a7fa5"} thin={false} />
         {Object.keys(breakdown).length > 0 && (
           <div style={{ display:"flex", flexWrap:"wrap", gap:5, marginTop:10 }}>
             {CAT_ORDER.filter(c=>breakdown[c]).map(c => {
@@ -463,7 +463,7 @@ function Spending({ entries, setEntries, totalSpent }) {
               ))}
             </div>
           </div>
-          <ProgressBar pct={ytdPct} color={ytdPct>85?"#d4886a":"#4a7fa5"} />
+          <ProgressBar pct={ytdPct} color={ytdPct>85?"#d4886a":"#4a7fa5"} thin={false} />
           <div style={{ marginTop:14 }}>
             {historyView==="bar"     && <MonthlyBarChart months={allMonths} />}
             {historyView==="stacked" && <StackedBarChart months={allMonths} />}
@@ -671,7 +671,7 @@ function StackedBarChart({ months }) {
       <text x={PAD_L-2} y={goalY-3} textAnchor="end" fontSize={8} fill="#8faabc" style={{ fontFamily:"'DM Sans', sans-serif" }}>Budget</text>
       {months.map((m,i) => {
         const bd = categoryBreakdown(m.entries);
-        const total = Object.values(bd).reduce((s,v)=>s+v,0);
+        const total = (Object.values(bd) as number[]).reduce((s:number,v:number)=>s+v,0);
         const x = PAD_L+i*((W-PAD_L)/months.length)+BAR_GAP/2;
         let yBottom = H-PAD_B;
         const segs = CAT_ORDER.filter(c=>bd[c]>0).map(c=>({ c, val:bd[c], h:yS(bd[c]), color:CATEGORY_COLORS[c].bar }));
@@ -723,7 +723,7 @@ function ScreenshotImporter({ onImport }) {
   const [message, setMessage]   = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [previews, setPreviews] = useState([]);
-  const fileRef = useRef();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const processFiles = async (files) => {
     const imageFiles = [...files].filter(f=>f.type.startsWith("image/"));
@@ -771,7 +771,7 @@ function ScreenshotImporter({ onImport }) {
   );
 }
 function fileToBase64(file) {
-  return new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res(r.result.split(",")[1]); r.onerror=()=>rej(new Error("Failed")); r.readAsDataURL(file); });
+  return new Promise((res,rej) => { const r=new FileReader(); r.onload=()=>res((r.result as string).split(",")[1]); r.onerror=()=>rej(new Error("Failed")); r.readAsDataURL(file); });
 }
 
 // ── Macros ────────────────────────────────────────────────────────────────────
@@ -1096,7 +1096,7 @@ function TodoList({ tasks, update, label, accent, taskType }) {
             Archive ({taskArchives.length})
           </button>
         </div>
-        <ProgressBar pct={tasks.length?(done.length/tasks.length)*100:0} color={accent} />
+        <ProgressBar pct={tasks.length?(done.length/tasks.length)*100:0} color={accent} thin={false} />
       </div>
 
       {rolledOver.length>0 && (
@@ -1200,7 +1200,9 @@ function ProgressBar({ pct, color, thin }) {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const S = {
+import { CSSProperties } from "react";
+
+const S: Record<string, CSSProperties> = {
   app:         { fontFamily:"'DM Sans', sans-serif", background:"#f5f2ed", minHeight:"100vh", maxWidth:780, margin:"0 auto", padding:"0 0 48px" },
   header:      { padding:"32px 24px 20px", display:"flex", justifyContent:"space-between", alignItems:"flex-end" },
   dateText:    { fontFamily:"'DM Sans', sans-serif", fontWeight:300, fontSize:12, color:"#a09890", letterSpacing:"0.06em", textTransform:"uppercase", marginBottom:4 },
