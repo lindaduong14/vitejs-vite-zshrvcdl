@@ -174,15 +174,28 @@ function categoryBreakdown(entries: any[]) {
 function shortMonth(m: string) { return new Date(m+"-15").toLocaleDateString("en-US",{month:"short"}); }
 
 async function parseMFPScreenshot(base64Image: string, mediaType: string) {
-  const sys = `You are a nutrition data extractor for MyFitnessPal meal screenshots.
-The screenshot shows a single meal view (Breakfast, Lunch, Dinner, or Snacks) with a macro ring at the top showing total calories, carbs, fat, and protein for that meal.
+  const sys = `You are a nutrition data extractor for MyFitnessPal screenshots. You will receive ONE of two types of screenshots:
+
+TYPE 1 - MEAL VIEW (Breakfast/Lunch/Dinner/Snacks):
+- Meal name at the top of the screen
+- Circular macro ring with calories in the center
+- Carbs, Fat, Protein shown beside the ring with grams
+- Extract: name=meal name, calories=center of ring, protein=grams next to Protein, fibre=0
+
+TYPE 2 - NUTRIENTS SUMMARY VIEW:
+- Shows "Nutrition" or "Nutrients" at the top
+- Lists nutrients in rows: Protein, Carbohydrates, Fiber, Sugar, Fat etc with Total/Goal/Left columns
+- Extract: name="Daily Nutrients", calories=0, protein=Total grams for Protein, fibre=Total grams for Fiber/Fibre
+
 Return ONLY a valid JSON array with ONE object. No markdown, no explanation.
 Format: [{ "name": string, "calories": number, "protein": number, "fibre": number }]
-- name: the meal name shown at the top of the screen (Breakfast, Lunch, Dinner, Snacks, or Meal if unclear)
-- calories: total calories in the macro ring
-- protein: protein grams shown in the macro ring
-- fibre: fibre/fiber grams if visible, otherwise 0
-Example: [{"name":"Breakfast","calories":375,"protein":29,"fibre":4}]`;
+
+Examples:
+Meal view showing Breakfast, 416 cal ring, 32g Protein:
+[{"name":"Breakfast","calories":416,"protein":32,"fibre":0}]
+
+Nutrients view showing Protein 149g total, Fiber 30g total:
+[{"name":"Daily Nutrients","calories":0,"protein":149,"fibre":30}]`;
   const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:300,system:sys,messages:[{role:"user",content:[{type:"image",source:{type:"base64",media_type:mediaType,data:base64Image}},{type:"text",text:"Extract the meal summary. Return only the JSON array."}]}]})});
   if(!res.ok) throw new Error(`API error ${res.status}`);
   const data=await res.json();
@@ -401,7 +414,7 @@ function ScreenshotImporter({onImport}: any){
         </select>
       </div>
       <div style={{marginBottom:10,padding:"8px 12px",background:"#eef2f8",borderRadius:8}}>
-        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#4a6fa5"}}>Upload one screenshot per meal (Breakfast, Lunch, Dinner, Snacks) showing the macro ring at the top.</p>
+        <p style={{fontFamily:"'DM Sans',sans-serif",fontSize:11,color:"#4a6fa5"}}>Upload meal screenshots (Breakfast, Lunch, Dinner, Snacks) for calories & protein. Add the Nutrients summary screenshot to also capture fibre.</p>
       </div>
       <div className={`img-drop${dragOver?" drag-over":""}`} onClick={()=>fileRef.current?.click()} onDragOver={e=>{e.preventDefault();setDragOver(true);}} onDragLeave={()=>setDragOver(false)} onDrop={e=>{e.preventDefault();setDragOver(false);processFiles(e.dataTransfer.files);}} style={{padding:"24px 16px",textAlign:"center",cursor:"pointer"}}>
         <div style={{fontSize:28,marginBottom:8}}>📸</div>
