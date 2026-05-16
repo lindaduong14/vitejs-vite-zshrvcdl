@@ -367,13 +367,22 @@ function Overview({ totalSpent, todayMacros, workDone, personalDone, workTasks, 
         <p style={S.bigNum}>{workDone}<span style={S.outOf}>/{workTasks.length}</span></p>
         <p style={S.subLabel}>tasks completed</p>
         <ProgressBar pct={workTasks.length?(workDone/workTasks.length)*100:0} color="#4a7fa5" thin={false} />
-        <Card onClick={() => setTab("Work")} label="Work Tasks">
-  <p style={S.bigNum}>{workDone}<span style={S.outOf}>/{workTasks.length}</span></p>
-  <p style={S.subLabel}>tasks completed</p>
-  <ProgressBar pct={workTasks.length?(workDone/workTasks.length)*100:0} color="#4a7fa5" thin={false} />
-  <div style={S.previewList}>
-    {workTasks.filter(t=>!t.done).slice(0,2).map(t=><p key={t.id} style={S.previewItem}>· {t.text}</p>)}
-  </div>
+        <div style={S.previewList}>
+          {workTasks.filter(t=>!t.done).slice(0,2).map(t=><p key={t.id} style={S.previewItem}>· {t.text}</p>)}
+        </div>
+      </Card>
+
+      <Card onClick={() => setTab("Personal")} label="Personal Tasks">
+        <p style={S.bigNum}>{personalDone}<span style={S.outOf}>/{personalTasks.length}</span></p>
+        <p style={S.subLabel}>tasks completed</p>
+        <ProgressBar pct={personalTasks.length?(personalDone/personalTasks.length)*100:0} color="#7fafc8" thin={false} />
+        <div style={S.previewList}>
+          {personalTasks.filter(t=>!t.done).slice(0,2).map(t=><p key={t.id} style={S.previewItem}>· {t.text}</p>)}
+        </div>
+      </Card>
+    </div>
+  );
+}
 </Card>
       <Card onClick={() => setTab("Personal")} label="Personal Tasks">
         <p style={S.bigNum}>{personalDone}<span style={S.outOf}>/{personalTasks.length}</span></p>
