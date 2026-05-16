@@ -202,15 +202,21 @@ function shortMonth(m) { return new Date(m+"-15").toLocaleDateString("en-US",{mo
 
 // ── AI helpers ────────────────────────────────────────────────────────────────
 async function parseMFPScreenshot(base64Image, mediaType) {
-  const systemPrompt = `You are a precise nutrition data extractor. Extract every food item from a MyFitnessPal food diary screenshot and return ONLY a valid JSON array. No markdown, no explanation.
-Each item: { "name": string, "calories": number, "protein": number, "fibre": number }. Use 0 if unclear. Fibre may be "Fiber" or "Dietary Fiber". Exclude meal headers and totals rows.
-Example: [{"name":"Oat milk latte","calories":120,"protein":4,"fibre":0}]`;
+  const systemPrompt = `You are a nutrition data extractor for MyFitnessPal meal screenshots.
+The screenshot shows a single meal view (Breakfast, Lunch, Dinner, or Snacks) with a macro ring at the top showing total calories, carbs, fat, and protein for that meal.
+Return ONLY a valid JSON array with ONE object. No markdown, no explanation.
+Format: [{ "name": string, "calories": number, "protein": number, "fibre": number }]
+- name: the meal name shown at the top of the screen (Breakfast, Lunch, Dinner, Snacks, or Meal if unclear)
+- calories: total calories in the macro ring
+- protein: protein grams shown in the macro ring
+- fibre: fibre/fiber grams if visible, otherwise 0
+Example: [{"name":"Breakfast","calories":375,"protein":29,"fibre":4}]`;
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 1500, system: systemPrompt,
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 300, system: systemPrompt,
       messages: [{ role: "user", content: [
         { type: "image", source: { type: "base64", media_type: mediaType, data: base64Image } },
-        { type: "text", text: "Extract all food items. Return only the JSON array." }
+        { type: "text", text: "Extract the meal summary. Return only the JSON array." }
       ]}]
     })
   });
@@ -306,7 +312,7 @@ export default function App() {
           <main style={S.main}>
             {tab==="Overview"  && <Overview totalSpent={totalSpent} todayMacros={todayMacros} workDone={workDone} personalDone={personalDone} workTasks={workTasks} personalTasks={personalTasks} todayMeals={todayMeals} setTab={setTab} />}
             {tab==="Spending"  && <Spending entries={spending} setEntries={setSpending} totalSpent={totalSpent} />}
-            {tab==="Macros"    && <Macros todayMeals={todayMeals} updateTodayMeals={updateTodayMeals} updateMealsByDay={updateMealsByDay} todayMacros={todayMacros} />}
+            {tab==="Macros"    && <Macros todayMeals={todayMeals} updateTodayMeals={updateTodayMeals} updateMealsByDay={updateMealsByDay} todayMacros={todayMacros} state={state} />}
             {tab==="Work"      && <TodoList tasks={workTasks} update={setWorkTasks} label="Work" accent="#4a7fa5" taskType="work" />}
             {tab==="Personal"  && <TodoList tasks={personalTasks} update={setPersonalTasks} label="Personal" accent="#7fafc8" taskType="personal" />}
           </main>
@@ -360,7 +366,7 @@ function Overview({ totalSpent, todayMacros, workDone, personalDone, workTasks, 
       <Card onClick={() => setTab("Work")} label="Work Tasks">
         <p style={S.bigNum}>{workDone}<span style={S.outOf}>/{workTasks.length}</span></p>
         <p style={S.subLabel}>tasks completed</p>
-        <ProgressBar pct={workTasks.length?(workDone/workTasks.length)*100:0} color="#4a7fa5" thin={false} />
+        <ProgressBar pct={workTasks.length?(workDone/workTasks.length)*100:0} color="#4a7fa5" />
         <div style={S.previewList}>
           {workTasks.filter(t=>!t.done).slice(0,2).map(t=><p key={t.id} style={S.previewItem}>· {t.text}</p>)}
         </div>
@@ -369,7 +375,7 @@ function Overview({ totalSpent, todayMacros, workDone, personalDone, workTasks, 
       <Card onClick={() => setTab("Personal")} label="Personal Tasks">
         <p style={S.bigNum}>{personalDone}<span style={S.outOf}>/{personalTasks.length}</span></p>
         <p style={S.subLabel}>tasks completed</p>
-        <ProgressBar pct={personalTasks.length?(personalDone/personalTasks.length)*100:0} color="#7fafc8" thin={false} />
+        <ProgressBar pct={personalTasks.length?(personalDone/personalTasks.length)*100:0} color="#7fafc8" />
         <div style={S.previewList}>
           {personalTasks.filter(t=>!t.done).slice(0,2).map(t=><p key={t.id} style={S.previewItem}>· {t.text}</p>)}
         </div>
@@ -775,7 +781,7 @@ function fileToBase64(file) {
 }
 
 // ── Macros ────────────────────────────────────────────────────────────────────
-function Macros({ todayMeals, updateTodayMeals, updateMealsByDay, todayMacros }) {
+function Macros({ todayMeals, updateTodayMeals, updateMealsByDay, todayMacros, state }) {
   const [importOpen, setImportOpen] = useState(false);
   const [manualForm, setManualForm] = useState({ name:"", calories:"", protein:"", fibre:"" });
   const [hoveredDay, setHoveredDay] = useState(null);
@@ -784,7 +790,16 @@ function Macros({ todayMeals, updateTodayMeals, updateMealsByDay, todayMacros })
   const history     = loadMacroHistory();
   const fullHistory = { ...history, [todayStr]: todayMacros };
 
-  const handleImport = (items) => { updateTodayMeals([...items.map(item=>({id:Date.now()+Math.random(),...item})),...todayMeals]); setImportOpen(false); };
+  const handleImport = (items, targetDate) => {
+    const withIds = items.map(item=>({id:Date.now()+Math.random(),...item}));
+    if (targetDate && targetDate !== todayStr) {
+      updateMealsByDay({ [targetDate]: withIds });
+      saveDayToHistory(targetDate, withIds);
+    } else {
+      updateTodayMeals([...withIds, ...todayMeals]);
+    }
+    setImportOpen(false);
+  };
   const addManual    = () => { if (!manualForm.name.trim()) return; updateTodayMeals([{id:Date.now(),...manualForm},...todayMeals]); setManualForm({name:"",calories:"",protein:"",fibre:""}); };
   const removeToday  = id => updateTodayMeals(todayMeals.filter(m=>m.id!==id));
 
